@@ -2,7 +2,7 @@ CC = emcc
 SOURCEDIRS = src/ core/src/
 TARGET = out/index.html
 
-CCARGS = -Iinclude/ -Icore/include/
+CCARGS = -sUSE_SDL=2 -Iinclude/ -Icore/include/
 
 SOURCES = $(shell find $(SOURCEDIRS) -name '*.c')
 
