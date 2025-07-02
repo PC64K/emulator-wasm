@@ -29,12 +29,23 @@ PC64K* pc64k;
 //     /* 0x2a */ 0x20, 0x23, // Set colors to R2/R3
 //     /* 0x2c */ 0x00, 0x00, 0x1a, // Go to 0x1a
 // };
+// uint8_t rom[] = {
+//     /* 0x00 */ 0x06, 0x10, 0x01, // R0++
+//     /* 0x03 */ 0x25, 0x00, 0x00, 0x0a, // If R0 is pressed, go to 0x0a
+//     /* 0x07 */ 0x00, 0x00, 0x00, // Go to 0x00
+//     /* 0x0a */ 0x24, 0x00, // Print R0
+//     /* 0x0c */ 0x00, 0x00, 0x00, // Go to 0x00
+// };
 uint8_t rom[] = {
-    /* 0x00 */ 0x06, 0x10, 0x01, // R0++
-    /* 0x03 */ 0x25, 0x00, 0x00, 0x0a, // If R0 is pressed, go to 0x0a
-    /* 0x07 */ 0x00, 0x00, 0x00, // Go to 0x00
-    /* 0x0a */ 0x24, 0x00, // Print R0
-    /* 0x0c */ 0x00, 0x00, 0x00, // Go to 0x00
+    /* 0x00 */ 0x06, 0x00, 0x41, // Set R0 to 'a'
+    /* 0x03 */ 0x06, 0x01, 0x01, // Set R1 to 1
+    /* 0x06 */ 0x1b, 0x01, // Set delay timer frequency to R1
+    /* 0x08 */ 0x21, // Clears display
+    /* 0x09 */ 0x24, 0x00, // Prints system character R0
+    /* 0x0b */ 0x1b, 0x21, // Set delay timer value to R1
+    /* 0x0d */ 0x1b, 0x40, // Wait for delay timer to finish
+    /* 0x0f */ 0x06, 0x10, 0x01, // R0++
+    /* 0x12 */ 0x00, 0x00, 0x08, // Goes to 0x08
 };
 
 size_t get_disk_size() {
@@ -71,9 +82,11 @@ static void loop() {
             pc64k_setkey(pc64k, evt.key.keysym.sym, false);
     }
     uint64_t now = micros();
-    uint64_t ticks = ((float) (now - last) / 1000000) * CPU_SPEED_HZ;
-    for(uint64_t i = 0; i < ticks; i++) pc64k_tick(pc64k);
-    last = now;
+    uint64_t interval = (double) 1000000 / CPU_SPEED_HZ;
+    while(now - last >= interval) {
+        pc64k_tick(pc64k);
+        last += interval;
+    }
     update_surface(surface);
     SDL_UpdateWindowSurface(window);
 }
