@@ -1,13 +1,33 @@
 #include <stdio.h>
 #include <pc64k.h>
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#endif
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
+#include <math.h>
+#ifndef M_PI
+#define M_PI 3.1415926
+#endif
 
 #include <emu/config.h>
 
+#ifdef __EMSCRIPTEN__
 EM_JS(uint64_t, micros, (), {
     return BigInt(Math.floor(performance.now() * 1000))
 });
+#else
+// https://stackoverflow.com/a/67731965
+#include <time.h>
+#define SEC_TO_US(sec) ((sec)*1000000)
+#define NS_TO_US(ns)    ((ns)/1000)
+uint64_t micros() {
+    struct timespec ts;
+    clock_gettime(TIME_UTC, &ts);
+    uint64_t us = SEC_TO_US((uint64_t) ts.tv_sec) + NS_TO_US((uint64_t) ts.tv_nsec);
+    return us;
+}
+#endif
 
 PC64K* pc64k;
 
@@ -48,6 +68,14 @@ uint8_t rom[] = {
     /* 0x12 */ 0x00, 0x00, 0x08, // Goes to 0x08
 };
 
+// https://gist.github.com/fabiovila/b7626dcc0208a4d60abfbb047d4050bc
+SDL_AudioDeviceID device;
+uint32_t sample_pos;
+static void gen_sine(void* data, uint8_t* buffer, int length) {
+    for(int i = 0; i < length; i++)
+        buffer[i] = 128 + 30 * sin((double) sample_pos++ / (SAMPLE_FREQ / BEEP_FREQ) * M_PI * 2);
+}
+
 size_t get_disk_size() {
     return 0;
 }
@@ -72,6 +100,7 @@ static SDL_Window* window;
 static SDL_Surface* surface;
 
 uint64_t last;
+bool last_sound_on = false;
 
 static void loop() {
     SDL_Event evt;
@@ -87,12 +116,36 @@ static void loop() {
         pc64k_tick(pc64k);
         last += interval;
     }
+    if(last_sound_on && pc64k->sound.value == 0) {
+        last_sound_on = false;
+        SDL_PauseAudioDevice(device, true);
+    } else if(!last_sound_on && pc64k->sound.value != 0) {
+        last_sound_on = true;
+        SDL_PauseAudioDevice(device, false);
+    }
     update_surface(surface);
     SDL_UpdateWindowSurface(window);
 }
 
+bool init_audio() {
+    SDL_AudioSpec iscapture, desired;
+    SDL_zero(iscapture);
+    iscapture.freq = SAMPLE_FREQ;
+    iscapture.format = AUDIO_U8;
+    iscapture.channels = 1;
+    iscapture.samples = 2048;
+    iscapture.callback = gen_sine;
+    
+    device = SDL_OpenAudioDevice(NULL, 0, &iscapture, &desired, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+    if(!device) return false;
+    SDL_PauseAudioDevice(device, true);
+    return true;
+}
+
 int main() {
-    if(SDL_Init(SDL_INIT_VIDEO) != 0) // might have to add SDL_INIT_EVENTS later
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
+        return 1;
+    if(!init_audio())
         return 1;
     window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, DISPLAY_WIDTH, DISPLAY_HEIGHT, SDL_WINDOW_SHOWN);
     if(window == NULL) return 1;
@@ -101,7 +154,11 @@ int main() {
     pc64k = pc64k_alloc_init(rom, sizeof(rom), get_disk_size, read_disk, write_disk, micros);
 
     last = micros();
+    #ifdef __EMSCRIPTEN__
     emscripten_set_main_loop(loop, 0, 1);
+    #else
+    while(true) loop();
+    #endif
     // pc64k_deinit_free(pc64k);
 
     // SDL_DestroyWindow(window);
