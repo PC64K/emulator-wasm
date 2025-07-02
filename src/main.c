@@ -10,18 +10,19 @@ EM_JS(uint64_t, micros, (), {
 PC64K* pc64k;
 
 uint8_t rom[] = {
-    // 0x1c, 0x41,
-    0x1c, 0x23,
-    0x00, 0x00, 0x00
+    0x06, 0x00, 0x20,
+    0x1a, 0x00, 0x7f, 0x00, 0x10,
+    0x24, 0x00,
+    0x06, 0x10, 0x01,
+    0x00, 0x00, 0x03,
+    0x00, 0x00, 0x10
 };
 
 size_t get_disk_size() {
     return 0;
 }
-uint8_t* read_disk(size_t pos, uint8_t len) {
-    uint8_t* data = (uint8_t*)malloc(len);
-    memset(data, 0, len);
-    return data;
+void read_disk(size_t pos, uint8_t* data, uint8_t len) {
+    memset(data + pos, 0, len);
 }
 void write_disk(size_t pos, uint8_t* data, uint8_t len) {}
 
@@ -45,7 +46,7 @@ int main() {
     SDL_Surface* surface = SDL_GetWindowSurface(window);
 
     pc64k = pc64k_alloc_init(rom, sizeof(rom), get_disk_size, read_disk, write_disk, micros);
-    for(int i = 0; i < 481 * 2; i++) {
+    for(int i = 0; i < 10000; i++) {
         pc64k_tick(pc64k);
         update_surface(surface);
         SDL_UpdateWindowSurface(window);
