@@ -1,0 +1,36 @@
+<!-- https://stackoverflow.com/a/67983449 -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PC64K emulator</title>
+
+        <style>
+            :root {
+                --w: calc(8 * 40);
+                --h: calc(16 * 12);
+                --fit: min(100vw, calc(100vh * (var(--w) / var(--h))));
+            }
+            canvas {
+                width: var(--fit);
+                height: calc(var(--fit) * (var(--h) / var(--w)));
+
+                position: fixed;
+                top: 50vh;
+                left: 50vw;
+                transform: translate(-50%, -50%);
+                image-rendering: pixelated;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <script>
+            var Module = {
+                canvas: document.querySelector("#canvas")
+            };
+        </script>
+        <script src="index.js"></script>
+    </body>
+</html>
