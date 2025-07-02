@@ -4,7 +4,7 @@ TARGET_JS = out/index.js
 TARGET_HTML = out/index.html
 TEMPLATE = template.html
 
-CCARGS = -sUSE_SDL=2 -Iinclude/ -Icore/include/
+CCARGS = -sUSE_SDL=2 -Iinclude/ -Icore/include/ -O3
 
 SOURCES = $(shell find $(SOURCEDIRS) -name '*.c')
 

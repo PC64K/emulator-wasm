@@ -3,8 +3,10 @@
 #include <emscripten.h>
 #include <SDL2/SDL.h>
 
+#include <emu/config.h>
+
 EM_JS(uint64_t, micros, (), {
-    return Math.floor(performance.now() * 1000)
+    return BigInt(Math.floor(performance.now() * 1000))
 });
 
 PC64K* pc64k;
@@ -48,21 +50,37 @@ void update_surface(SDL_Surface* surface) {
         }
 }
 
+static SDL_Window* window;
+static SDL_Surface* surface;
+
+uint64_t last;
+
+static void loop() {
+    SDL_Event evt;
+    while(SDL_PollEvent(&evt)) {
+        if(evt.type == SDL_KEYDOWN)
+            printf("%c\n", evt.key.keysym.sym);
+    }
+    uint64_t now = micros();
+    uint64_t ticks = ((float) (now - last) / 1000000) * CPU_SPEED_HZ;
+    for(uint64_t i = 0; i < ticks; i++) pc64k_tick(pc64k);
+    last = now;
+    update_surface(surface);
+    SDL_UpdateWindowSurface(window);
+}
+
 int main() {
     if(SDL_Init(SDL_INIT_VIDEO) != 0) // might have to add SDL_INIT_EVENTS later
         return 1;
-    SDL_Window* window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, DISPLAY_WIDTH, DISPLAY_HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, DISPLAY_WIDTH, DISPLAY_HEIGHT, SDL_WINDOW_SHOWN);
     if(window == NULL) return 1;
-    SDL_Surface* surface = SDL_GetWindowSurface(window);
+    surface = SDL_GetWindowSurface(window);
 
     pc64k = pc64k_alloc_init(rom, sizeof(rom), get_disk_size, read_disk, write_disk, micros);
-    for(int i = 0; i < 10000; i++) {
-        pc64k_tick(pc64k);
-        update_surface(surface);
-        SDL_UpdateWindowSurface(window);
-        // SDL_Delay(10);
-    }
-    pc64k_deinit_free(pc64k);
+
+    last = micros();
+    emscripten_set_main_loop(loop, 0, 1);
+    // pc64k_deinit_free(pc64k);
 
     // SDL_DestroyWindow(window);
     // SDL_Quit();
