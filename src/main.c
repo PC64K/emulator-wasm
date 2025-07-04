@@ -30,6 +30,24 @@ EM_ASYNC_JS(void, load_rom, (size_t size, uint8_t* buf), {
     await new Promise(check);
     document.querySelector("#dialog").style.display = "none";
 });
+
+size_t get_disk_size() {
+    return 65536; // Always 64KB
+}
+EM_JS(void, read_disk, (size_t pos, uint8_t* data, uint8_t len), {
+    const no = document.querySelector("#disk").value;
+    const sub = (localStorage.getItem("__64_" + no) || "\0".repeat(65536)).split("").map(x => x.charCodeAt(0)).slice(pos, pos + len);
+    for(let i = 0; i < len; i++)
+        HEAPU8[data + i] = sub[i];
+});
+EM_JS(void, write_disk, (size_t pos, uint8_t* data, uint8_t len), {
+    const no = document.querySelector("#disk").value;
+    const sub = HEAPU8.subarray(data, data + len);
+    const disk = (localStorage.getItem("__64_" + no) || "\0".repeat(65536)).split("").map(x => x.charCodeAt(0));
+    for(let i = 0; i < len; i++)
+        disk[pos + i] = sub[i];
+    localStorage.setItem("__64_" + no, disk.map(x => String.fromCharCode(x)).join(""));
+});
 #else
 // https://stackoverflow.com/a/67731965
 #include <time.h>
@@ -42,6 +60,14 @@ uint64_t micros() {
     return us;
 }
 void load_rom(size_t size, uint8_t* buf);
+
+size_t get_disk_size() {
+    return 0;
+}
+void read_disk(size_t pos, uint8_t* data, uint8_t len) {
+    memset(data + pos, 0, len);
+}
+void write_disk(size_t pos, uint8_t* data, uint8_t len) {}
 #endif
 
 PC64K* pc64k;
@@ -92,14 +118,6 @@ static void gen_sine(void* data, uint8_t* buffer, int length) {
     for(int i = 0; i < length; i++)
         buffer[i] = 128 + 30 * sin((double) sample_pos++ / (SAMPLE_FREQ / BEEP_FREQ) * M_PI * 2);
 }
-
-size_t get_disk_size() {
-    return 0;
-}
-void read_disk(size_t pos, uint8_t* data, uint8_t len) {
-    memset(data + pos, 0, len);
-}
-void write_disk(size_t pos, uint8_t* data, uint8_t len) {}
 
 void update_surface(SDL_Surface* surface) {
     for(uint16_t x = 0; x < DISPLAY_WIDTH; x++)
