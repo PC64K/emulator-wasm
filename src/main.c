@@ -16,6 +16,20 @@
 EM_JS(uint64_t, micros, (), {
     return BigInt(Math.floor(performance.now() * 1000))
 });
+EM_ASYNC_JS(void, load_rom, (size_t size, uint8_t* buf), {
+    const romEl = document.querySelector("#rom");
+    await new Promise(resolve => romEl.addEventListener("change", resolve));
+    const reader = new FileReader();
+    let done = false;
+    reader.addEventListener("load", () => {
+        HEAPU8.set(new Uint8Array(reader.result).subarray(0, size), buf);
+        done = true;
+    });
+    reader.readAsArrayBuffer(romEl.files[0]);
+    const check = async resolve => done ? resolve() : setTimeout(check, 1, resolve);
+    await new Promise(check);
+    document.querySelector("#dialog").style.display = "none";
+});
 #else
 // https://stackoverflow.com/a/67731965
 #include <time.h>
@@ -27,6 +41,7 @@ uint64_t micros() {
     uint64_t us = SEC_TO_US((uint64_t) ts.tv_sec) + NS_TO_US((uint64_t) ts.tv_nsec);
     return us;
 }
+void load_rom(size_t size, uint8_t* buf);
 #endif
 
 PC64K* pc64k;
@@ -56,17 +71,19 @@ PC64K* pc64k;
 //     /* 0x0a */ 0x24, 0x00, // Print R0
 //     /* 0x0c */ 0x00, 0x00, 0x00, // Go to 0x00
 // };
-uint8_t rom[] = {
-    /* 0x00 */ 0x06, 0x00, 0x41, // Set R0 to 'a'
-    /* 0x03 */ 0x06, 0x01, 0x01, // Set R1 to 1
-    /* 0x06 */ 0x1b, 0x01, // Set delay timer frequency to R1
-    /* 0x08 */ 0x21, // Clears display
-    /* 0x09 */ 0x24, 0x00, // Prints system character R0
-    /* 0x0b */ 0x1b, 0x21, // Set delay timer value to R1
-    /* 0x0d */ 0x1b, 0x40, // Wait for delay timer to finish
-    /* 0x0f */ 0x06, 0x10, 0x01, // R0++
-    /* 0x12 */ 0x00, 0x00, 0x08, // Goes to 0x08
-};
+// uint8_t rom[] = {
+//     /* 0x00 */ 0x06, 0x00, 0x41, // Set R0 to 'a'
+//     /* 0x03 */ 0x06, 0x01, 0x01, // Set R1 to 1
+//     /* 0x06 */ 0x1b, 0x01, // Set delay timer frequency to R1
+//     /* 0x08 */ 0x21, // Clears display
+//     /* 0x09 */ 0x24, 0x00, // Prints system character R0
+//     /* 0x0b */ 0x1b, 0x21, // Set delay timer value to R1
+//     /* 0x0d */ 0x1b, 0x40, // Wait for delay timer to finish
+//     /* 0x0f */ 0x06, 0x10, 0x01, // R0++
+//     /* 0x12 */ 0x00, 0x00, 0x08, // Goes to 0x08
+// };
+#define ROM_SIZE 65536
+uint8_t rom[ROM_SIZE];
 
 // https://gist.github.com/fabiovila/b7626dcc0208a4d60abfbb047d4050bc
 SDL_AudioDeviceID device;
@@ -143,6 +160,8 @@ bool init_audio() {
 }
 
 int main() {
+    load_rom(ROM_SIZE, rom);
+
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
         return 1;
     if(!init_audio())
@@ -151,7 +170,7 @@ int main() {
     if(window == NULL) return 1;
     surface = SDL_GetWindowSurface(window);
 
-    pc64k = pc64k_alloc_init(rom, sizeof(rom), get_disk_size, read_disk, write_disk, micros);
+    pc64k = pc64k_alloc_init(rom, ROM_SIZE, get_disk_size, read_disk, write_disk, micros);
 
     last = micros();
     #ifdef __EMSCRIPTEN__

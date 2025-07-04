@@ -22,9 +22,24 @@
                 transform: translate(-50%, -50%);
                 image-rendering: pixelated;
             }
+            #dialog {
+                text-align: center;
+                font-family: sans-serif;
+                padding: .5em;
+                position: fixed;
+                top: 50vh;
+                left: 50vw;
+                transform: translate(-50%, -50%);
+                z-index: 1;
+                background: #ddd;
+            }
         </style>
     </head>
     <body>
+        <div id="dialog">
+            <h1>Start emulator</h1>
+            <label for="rom">When you are ready, upload your ROM: </label><input type="file" id="rom">
+        </div>
         <canvas id="canvas"></canvas>
         <script>
             var Module = {
