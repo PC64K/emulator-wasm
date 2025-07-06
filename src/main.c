@@ -18,6 +18,11 @@ EM_JS(uint64_t, micros, (), {
     return BigInt(Math.floor(performance.now() * 1000))
 });
 EM_ASYNC_JS(void, load_rom, (size_t size, uint8_t* buf), {
+    if(location.hash) {
+        HEAPU8.set(Uint8Array.from(location.hash.replace("#", "").match(/.{1,2}/g).map((byte) => parseInt(byte, 16))), buf);
+        document.querySelector("#dialog").style.display = "none";
+        return;
+    }
     const romEl = document.querySelector("#rom");
     await new Promise(resolve => romEl.addEventListener("change", resolve));
     const reader = new FileReader();
