@@ -11,6 +11,7 @@
 #endif
 
 #include <emu/config.h>
+#include <emu/kb.h>
 
 #ifdef __EMSCRIPTEN__
 EM_JS(uint64_t, micros, (), {
@@ -103,12 +104,8 @@ bool last_sound_on = false;
 
 static void loop() {
     SDL_Event evt;
-    while(SDL_PollEvent(&evt)) {
-        if(evt.type == SDL_KEYDOWN)
-            pc64k_setkey(pc64k, evt.key.keysym.sym, true);
-        else if(evt.type == SDL_KEYUP)
-            pc64k_setkey(pc64k, evt.key.keysym.sym, false);
-    }
+    while(SDL_PollEvent(&evt)) 
+        handle_event(&evt, pc64k);
     uint64_t now = micros();
     uint64_t interval = (double) 1000000 / CPU_SPEED_HZ;
     while(now - last >= interval) {
